@@ -1,0 +1,6 @@
+[Addon]
+Name=WhisperCpp Input
+Category=InputMethod
+Library=whispercpp
+Type=SharedLibrary
+OnDemand=True

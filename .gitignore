@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+dist/
+wheels/
+*.egg-info/
+
+# C++ build
+build/
+*.o
+*.so
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

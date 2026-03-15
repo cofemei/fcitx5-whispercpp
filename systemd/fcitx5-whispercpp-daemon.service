@@ -1,0 +1,16 @@
+[Unit]
+Description=fcitx5 whispercpp daemon
+Documentation=https://example.invalid/fcitx5-whispercpp
+
+[Service]
+Type=dbus
+BusName=org.fcitx.Fcitx5.WhisperCpp
+ExecStart=%h/.local/bin/fcitx5-whispercpp-daemon --model __MODEL__ --language __LANGUAGE__ --prompt-file "__PROMPT_FILE__"
+Restart=on-failure
+RestartSec=2s
+
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target
