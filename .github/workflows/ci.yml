@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-python:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install --disable-pip-version-check ruff==0.11.0
+
+      - name: Ruff check
+        run: ruff check daemon tools
+
+      - name: Ruff format check
+        run: ruff format --check daemon tools
+
+      - name: Syntax smoke check
+        run: python -m compileall -q daemon tools
+
+  lint-shell:
+    name: Shell Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: |
+          mapfile -t files < <(find scripts -type f -name "*.sh" | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shell scripts found."
+            exit 0
+          fi
+          shellcheck -x "${files[@]}"
+
+  lint-workflows:
+    name: Workflow Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: actionlint
+        uses: rhysd/actionlint@v1

@@ -118,3 +118,11 @@ fcitx5-whispercpp/
 │   └── resolve_hf_model.py              Download model from Hugging Face
 └── uv.lock
 ```
+
+## Automation
+
+- **CI (`.github/workflows/ci.yml`)**: runs on push/PR to `main` and checks Python lint/format, shell scripts, and workflow syntax.
+- **CodeQL (`.github/workflows/codeql.yml`)**: runs on push/PR to `main` and weekly schedule for Python/C++ static analysis.
+- **Dependabot (`.github/dependabot.yml`)**: weekly updates for GitHub Actions and Python dependencies.
+- **Release (`.github/workflows/release.yml`)**: pushes a tag like `v0.1.0` to create a GitHub Release with auto-generated notes.
+- **Release message template (`.github/release.yml`)**: controls release note categories by PR labels.
