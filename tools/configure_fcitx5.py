@@ -105,7 +105,7 @@ def configure() -> None:
         for line in profile_lines:
             line = line.strip()
             if line.startswith("[Groups/0/Items/") and line.endswith("]"):
-                idx = line[len("[Groups/0/Items/"):-1]
+                idx = line[len("[Groups/0/Items/") : -1]
                 if idx.isdigit():
                     item_indices.append(int(idx))
         next_idx = max(item_indices) + 1 if item_indices else 0
@@ -139,9 +139,15 @@ def configure() -> None:
         config_lines = config_path.read_text().splitlines()
     except FileNotFoundError:
         config_lines = []
-    config_lines = ensure_list_first(config_lines, "Hotkey/TriggerKeys", "Control+space")
-    config_lines = ensure_list_first(config_lines, "Hotkey/EnumerateGroupForwardKeys", "Control+space")
-    config_lines = ensure_key(config_lines, "Hotkey", "EnumerateWithTriggerKeys", "True")
+    config_lines = ensure_list_first(
+        config_lines, "Hotkey/TriggerKeys", "Control+space"
+    )
+    config_lines = ensure_list_first(
+        config_lines, "Hotkey/EnumerateGroupForwardKeys", "Control+space"
+    )
+    config_lines = ensure_key(
+        config_lines, "Hotkey", "EnumerateWithTriggerKeys", "True"
+    )
     config_path.write_text("\n".join(config_lines) + "\n")
 
 
