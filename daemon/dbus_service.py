@@ -44,6 +44,10 @@ DBUS_INTERFACE = """
 </node>
 """
 
+# Keep a process-lifetime reference to SessionBus, otherwise the name owner may
+# get dropped after GC and systemd(Type=dbus) will terminate the daemon.
+_SESSION_BUS: SessionBus | None = None
+
 
 @dataclass
 class Recorder:
@@ -106,7 +110,9 @@ class WhisperCppService:
     RecordingStopped = signal()
     Error = signal()
 
-    def __init__(self, model: str, language: str, device: int | None, prompt: str | None):
+    def __init__(
+        self, model: str, language: str, device: int | None, prompt: str | None
+    ):
         self._language = language
         self._device = device
         self._prompt = prompt
@@ -133,6 +139,13 @@ class WhisperCppService:
             kwargs["initial_prompt"] = self._prompt
         return kwargs
 
+    def _transcribe_segments(self, audio: np.ndarray):
+        with self._model_lock:
+            return self._model.transcribe(
+                audio,
+                **self._transcribe_kwargs(),
+            )
+
     def StartRecording(self) -> None:
         if self._recording or self._busy:
             return
@@ -144,7 +157,9 @@ class WhisperCppService:
             self._recording = True
             self._last_delta_text = ""
             self._stream_stop_event.clear()
-            self._stream_thread = threading.Thread(target=self._stream_transcribe_loop, daemon=True)
+            self._stream_thread = threading.Thread(
+                target=self._stream_transcribe_loop, daemon=True
+            )
             self._stream_thread.start()
             self.RecordingStarted()
             logger.info("Recording started")
@@ -183,11 +198,7 @@ class WhisperCppService:
 
     def _transcribe(self, audio: np.ndarray) -> None:
         try:
-            with self._model_lock:
-                segments = self._model.transcribe(
-                    audio,
-                    **self._transcribe_kwargs(),
-                )
+            segments = self._transcribe_segments(audio)
             text = self._segments_to_text(segments)
             if text:
                 logger.info("Committed text length=%d", len(text))
@@ -210,15 +221,13 @@ class WhisperCppService:
                 continue
 
             try:
-                with self._model_lock:
-                    segments = self._model.transcribe(
-                        audio,
-                        **self._transcribe_kwargs(),
-                    )
+                segments = self._transcribe_segments(audio)
                 text = self._segments_to_text(segments)
                 if text and text != self._last_delta_text:
                     self._last_delta_text = text
-                    logger.info("Emit TranscriptionDelta len=%d (stream loop)", len(text))
+                    logger.info(
+                        "Emit TranscriptionDelta len=%d (stream loop)", len(text)
+                    )
                     GLib.idle_add(self.TranscriptionDelta, text)
             except Exception:
                 # Streaming updates are best-effort; final transcription still runs at stop.
@@ -228,7 +237,10 @@ class WhisperCppService:
 def start_dbus_service(
     model: str, language: str, device: int | None, prompt: str | None
 ) -> WhisperCppService:
-    bus = SessionBus()
-    service = WhisperCppService(model=model, language=language, device=device, prompt=prompt)
-    bus.publish(DBUS_NAME, (DBUS_PATH, service))
+    global _SESSION_BUS
+    _SESSION_BUS = SessionBus()
+    service = WhisperCppService(
+        model=model, language=language, device=device, prompt=prompt
+    )
+    _SESSION_BUS.publish(DBUS_NAME, (DBUS_PATH, service))
     return service

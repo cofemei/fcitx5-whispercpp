@@ -29,9 +29,10 @@ Everything runs locally — no network access is required for transcription.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--local` | off | Install plugin to `~/.local` instead of `/usr` (no sudo required) |
 | `--model <name>` | `base` | Whisper model to use |
 | `--language <code>` | `zh` | Transcription language code |
+
+Install path is always `~/.local` (no sudo required).
 
 **Model options:**
 
@@ -117,6 +118,16 @@ fcitx5-whispercpp/
 │   ├── deconfigure_fcitx5.py            Remove whispercpp from fcitx5 profile
 │   └── resolve_hf_model.py              Download model from Hugging Face
 └── uv.lock
+```
+
+## Development
+
+Run lint/format checks with the project environment:
+
+```bash
+uv run ruff check daemon tools
+uv run ruff format daemon tools
+uv run shellcheck -x scripts/*.sh
 ```
 
 ## Automation
