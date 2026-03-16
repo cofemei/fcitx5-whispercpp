@@ -39,7 +39,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="base", help="Whisper model name")
     parser.add_argument("--language", default="zh", help="Language code")
     parser.add_argument("--device", type=int, default=None, help="Audio device index")
-    parser.add_argument("--prompt-file", default=None, help="Path to whisper initial prompt file")
+    parser.add_argument(
+        "--prompt-file", default=None, help="Path to whisper initial prompt file"
+    )
     return parser.parse_args()
 
 

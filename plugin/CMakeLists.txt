@@ -1,5 +1,6 @@
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(DBUS REQUIRED dbus-1)
+include(GNUInstallDirs)
 
 set(WHISPERCPP_SRCS
     whispercpp_engine.cpp
@@ -21,14 +22,6 @@ target_link_libraries(whispercpp
 )
 
 set_target_properties(whispercpp PROPERTIES PREFIX "")
-
-if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
-    set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib")
-endif()
-
-if(NOT DEFINED CMAKE_INSTALL_DATADIR)
-    set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_PREFIX}/share")
-endif()
 
 install(TARGETS whispercpp
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/fcitx5"

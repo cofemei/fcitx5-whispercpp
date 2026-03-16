@@ -24,3 +24,9 @@ packages = ["daemon"]
 
 [tool.uv]
 package = true
+
+[dependency-groups]
+dev = [
+    "ruff==0.11.0",
+    "shellcheck-py>=0.11.0.1",
+]

@@ -32,7 +32,9 @@ def resolve(repo: str, model_file: str) -> Path:
         with urlopen(api_url, timeout=20) as response:
             data = json.load(response)
     except Exception as exc:
-        print(f"Failed to query Hugging Face model repo '{repo}': {exc}", file=sys.stderr)
+        print(
+            f"Failed to query Hugging Face model repo '{repo}': {exc}", file=sys.stderr
+        )
         sys.exit(1)
 
     siblings = data.get("siblings", [])
@@ -62,16 +64,27 @@ def resolve(repo: str, model_file: str) -> Path:
         compatible.sort(key=score, reverse=True)
         chosen = compatible[0]
 
-    cache_dir = Path.home() / ".cache" / "fcitx5-whispercpp" / "models" / repo.replace("/", "__")
+    cache_dir = (
+        Path.home()
+        / ".cache"
+        / "fcitx5-whispercpp"
+        / "models"
+        / repo.replace("/", "__")
+    )
     cache_dir.mkdir(parents=True, exist_ok=True)
     target = cache_dir / Path(chosen).name
 
     if not target.exists():
-        download_url = f"https://huggingface.co/{repo}/resolve/main/{quote(chosen, safe='/')}"
+        download_url = (
+            f"https://huggingface.co/{repo}/resolve/main/{quote(chosen, safe='/')}"
+        )
         try:
             urlretrieve(download_url, target)
         except Exception as exc:
-            print(f"Failed to download '{chosen}' from repo '{repo}': {exc}", file=sys.stderr)
+            print(
+                f"Failed to download '{chosen}' from repo '{repo}': {exc}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     return target

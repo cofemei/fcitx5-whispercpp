@@ -6,22 +6,27 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 MODEL="base"
 LANGUAGE="zh"
-LOCAL_INSTALL=false
 USE_BACKEND_BUILD=false
 RESOLVED_MODEL=""
+LOCAL_PREFIX="$HOME/.local"
+LOCAL_ADDON_DIR="$LOCAL_PREFIX/lib/fcitx5"
+SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
+SERVICE_NAME="fcitx5-whispercpp-daemon.service"
 
 usage() {
     cat <<USAGE
-Usage: $0 [--local] [--model <name>] [--language <code>]
+Usage: $0 [--model <name>] [--language <code>]
 
 Options:
-  --local            Install to ~/.local
   --model <name>     whispercpp model (default: base)
                      - built-in name (e.g. base)
                      - local model file path (.bin/.gguf)
                      - Hugging Face repo id with whisper.cpp model files
                      - Hugging Face specific file: <repo_id>@<filename>
   --language <code>  language code (default: zh)
+
+Install path:
+  Always installs to ~/.local (no sudo required)
 
 Backend build environment variables:
   GGML_VULKAN=1      Build pywhispercpp/whisper.cpp with Vulkan support
@@ -32,10 +37,6 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --local)
-            LOCAL_INSTALL=true
-            shift
-            ;;
         --model)
             MODEL="$2"
             shift 2
@@ -97,30 +98,45 @@ if [[ "$USE_BACKEND_BUILD" == "true" ]]; then
     uv pip install --reinstall --no-binary pywhispercpp pywhispercpp
 fi
 
-mkdir -p "$HOME/.local/bin"
+mkdir -p "$LOCAL_PREFIX/bin"
 if ! uv run which fcitx5-whispercpp-daemon >/dev/null 2>&1; then
     uv pip install -e .
 fi
 DAEMON_PATH="$(uv run which fcitx5-whispercpp-daemon)"
-ln -sf "$DAEMON_PATH" "$HOME/.local/bin/fcitx5-whispercpp-daemon"
+ln -sf "$DAEMON_PATH" "$LOCAL_PREFIX/bin/fcitx5-whispercpp-daemon"
 
 echo "==> Building fcitx5 plugin"
 mkdir -p build
 (
     cd build
-    if [[ "$LOCAL_INSTALL" == "true" ]]; then
-        cmake .. -DCMAKE_INSTALL_PREFIX="$HOME/.local" -DCMAKE_BUILD_TYPE=Release
-        make -j"$(nproc)"
-        make install
-    else
-        cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
-        make -j"$(nproc)"
-        sudo make install
-    fi
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX="$LOCAL_PREFIX" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_INSTALL_DATADIR=share \
+        -DCMAKE_BUILD_TYPE=Release
+    make -j"$(nproc)"
+    make install
 )
 
 echo "==> Installing systemd user service"
-mkdir -p "$HOME/.config/systemd/user"
+mkdir -p "$SYSTEMD_USER_DIR"
+
+echo "==> Persisting fcitx5 addon library path"
+mkdir -p "$HOME/.config/environment.d"
+SYSTEM_ADDON_DIRS=""
+for dir in /usr/lib/fcitx5 /usr/lib64/fcitx5; do
+    if [[ -d "$dir" ]]; then
+        SYSTEM_ADDON_DIRS="${SYSTEM_ADDON_DIRS:+$SYSTEM_ADDON_DIRS:}$dir"
+    fi
+done
+ENV_FILE="$HOME/.config/environment.d/fcitx5-whispercpp.conf"
+FCITX_ADDON_DIRS="$LOCAL_ADDON_DIR${SYSTEM_ADDON_DIRS:+:$SYSTEM_ADDON_DIRS}"
+cat > "$ENV_FILE" <<EOF
+FCITX_ADDON_DIRS=$FCITX_ADDON_DIRS
+EOF
+export FCITX_ADDON_DIRS
+systemctl --user import-environment FCITX_ADDON_DIRS || true
+
 PROMPT_SOURCE="$PROJECT_ROOT/prompt.md"
 PROMPT_TARGET_DIR="$HOME/.config/fcitx5-whispercpp"
 PROMPT_TARGET="$PROMPT_TARGET_DIR/prompt.md"
@@ -137,6 +153,63 @@ escape_sed_replacement() {
     printf '%s' "$1" | sed -e 's/[\/&|]/\\&/g'
 }
 
+post_install_checks() {
+    echo "==> Running post-install checks"
+    local warnings=0
+
+    if [[ -f "$LOCAL_ADDON_DIR/whispercpp.so" ]] \
+        && [[ -f "$LOCAL_PREFIX/share/fcitx5/addon/whispercpp.conf" ]] \
+        && [[ -f "$LOCAL_PREFIX/share/fcitx5/inputmethod/whispercpp.conf" ]]; then
+        echo "[OK] Plugin files installed under ~/.local."
+    else
+        echo "[WARN] Missing plugin files under ~/.local; reinstall may be required."
+        warnings=$((warnings + 1))
+    fi
+
+    if systemctl --user is-active --quiet "$SERVICE_NAME"; then
+        echo "[OK] systemd user service is active."
+    else
+        echo "[WARN] fcitx5-whispercpp-daemon.service is not active."
+        warnings=$((warnings + 1))
+    fi
+
+    if command -v busctl >/dev/null 2>&1; then
+        if busctl --user list 2>/dev/null | grep -q 'org.fcitx.Fcitx5.WhisperCpp'; then
+            echo "[OK] D-Bus name org.fcitx.Fcitx5.WhisperCpp is registered."
+        else
+            echo "[WARN] D-Bus name org.fcitx.Fcitx5.WhisperCpp is not registered."
+            warnings=$((warnings + 1))
+        fi
+    fi
+
+    if command -v fcitx5-remote >/dev/null 2>&1 && fcitx5-remote --check >/dev/null 2>&1; then
+        local pid=""
+        local env_line=""
+        pid="$(pgrep -u "$USER" -x fcitx5 | head -n1 || true)"
+        if [[ -n "$pid" && -r "/proc/$pid/environ" ]]; then
+            env_line="$(tr '\0' '\n' < "/proc/$pid/environ" | grep '^FCITX_ADDON_DIRS=' || true)"
+        fi
+
+        if [[ "$env_line" == *"$LOCAL_ADDON_DIR"* ]]; then
+            echo "[OK] Running fcitx5 process has ~/.local addon path in FCITX_ADDON_DIRS."
+        else
+            echo "[WARN] Running fcitx5 process does not include ~/.local/lib/fcitx5 in FCITX_ADDON_DIRS."
+            echo "       Restart fcitx5 now (fcitx5-remote -r) or re-login to apply environment.d."
+            warnings=$((warnings + 1))
+        fi
+    else
+        echo "[WARN] fcitx5 is not running in this session."
+        echo "       Start fcitx5 (or re-login), then test whispercpp input method."
+        warnings=$((warnings + 1))
+    fi
+
+    if [[ "$warnings" -eq 0 ]]; then
+        echo "Post-install checks passed."
+    else
+        echo "Post-install checks finished with $warnings warning(s)."
+    fi
+}
+
 SED_MODEL="$(escape_sed_replacement "$RESOLVED_MODEL")"
 SED_LANGUAGE="$(escape_sed_replacement "$LANGUAGE")"
 SED_PROMPT_FILE="$(escape_sed_replacement "$PROMPT_TARGET")"
@@ -145,15 +218,15 @@ sed -e "s|__MODEL__|$SED_MODEL|g" \
     -e "s|__LANGUAGE__|$SED_LANGUAGE|g" \
     -e "s|__PROMPT_FILE__|$SED_PROMPT_FILE|g" \
     systemd/fcitx5-whispercpp-daemon.service \
-    > "$HOME/.config/systemd/user/fcitx5-whispercpp-daemon.service"
+    > "$SYSTEMD_USER_DIR/$SERVICE_NAME"
 
 systemctl --user daemon-reload
-systemctl --user enable fcitx5-whispercpp-daemon.service
-systemctl --user restart fcitx5-whispercpp-daemon.service
+systemctl --user enable "$SERVICE_NAME"
+systemctl --user restart "$SERVICE_NAME"
 
 echo "==> Installing D-Bus interface"
-mkdir -p "$HOME/.local/share/dbus-1/interfaces"
-cp dbus/org.fcitx.Fcitx5.WhisperCpp.xml "$HOME/.local/share/dbus-1/interfaces/"
+mkdir -p "$LOCAL_PREFIX/share/dbus-1/interfaces"
+cp dbus/org.fcitx.Fcitx5.WhisperCpp.xml "$LOCAL_PREFIX/share/dbus-1/interfaces/"
 
 echo "==> Configuring fcitx5 input method and hotkey"
 uv run python "$SCRIPT_DIR/../tools/configure_fcitx5.py"
@@ -170,5 +243,7 @@ if command -v fcitx5-remote >/dev/null 2>&1; then
 else
     echo "fcitx5-remote not found; please restart fcitx5 manually."
 fi
+
+post_install_checks
 
 echo "Installation finished. Input method id: whispercpp"

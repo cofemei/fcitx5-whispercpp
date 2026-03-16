@@ -25,7 +25,10 @@ def deconfigure() -> None:
                     break
                 section_end += 1
             section_body = lines[section_start:section_end]
-            if any(l.strip() == "Name=whispercpp" for l in section_body):
+            if any(
+                section_line.strip() == "Name=whispercpp"
+                for section_line in section_body
+            ):
                 # Drop trailing blank line before section if present.
                 if section_start > 0 and not lines[section_start - 1].strip():
                     del lines[section_start - 1 : section_end]
