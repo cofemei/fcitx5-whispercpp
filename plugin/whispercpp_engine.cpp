@@ -60,10 +60,7 @@ void WhisperCppEngine::deactivate(const InputMethodEntry&, InputContextEvent&) {
         } catch (...) {
         }
     }
-    recording_ = false;
-    active_ic_ = nullptr;
-    preedit_text_.clear();
-    clearPreedit();
+    resetState();
 }
 
 void WhisperCppEngine::keyEvent(const InputMethodEntry&, KeyEvent& event) {
@@ -117,22 +114,27 @@ void WhisperCppEngine::onDelta(const std::string& text) {
 }
 
 void WhisperCppEngine::onComplete(const std::string& text, int) {
+    recording_ = false;
     preedit_text_.clear();
     clearPreedit();
 
     if (text.empty()) {
+        active_ic_ = nullptr;
+        showStatus("W: no speech detected");
         return;
     }
 
     auto* ic = currentInputContext();
     if (!ic) {
         FCITX_WARN() << "No input context available for commit, text len=" << text.size();
+        active_ic_ = nullptr;
         return;
     }
 
-    FCITX_INFO() << "Committing whispercpp text len=" << text.size();
+    FCITX_DEBUG() << "Committing whispercpp text len=" << text.size();
     ic->commitString(text);
     showStatus("W: text committed");
+    active_ic_ = nullptr;
 }
 
 void WhisperCppEngine::onError(const std::string& message) {
@@ -141,6 +143,7 @@ void WhisperCppEngine::onError(const std::string& message) {
     setRecording(false);
     FCITX_ERROR() << "WhisperCpp D-Bus error: " << message;
     showStatus(std::string("W error: ") + message);
+    active_ic_ = nullptr;
 }
 
 InputContext* WhisperCppEngine::currentInputContext() const {
@@ -174,6 +177,13 @@ void WhisperCppEngine::setPreedit(const std::string& text) {
 
 void WhisperCppEngine::clearPreedit() {
     updatePreeditDisplay(Text());
+}
+
+void WhisperCppEngine::resetState() {
+    recording_ = false;
+    preedit_text_.clear();
+    clearPreedit();
+    active_ic_ = nullptr;
 }
 
 void WhisperCppEngine::showStatus(const std::string& message) {

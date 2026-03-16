@@ -34,6 +34,7 @@ private:
     void updatePreeditDisplay(const Text& preedit);
     void setPreedit(const std::string& text);
     void clearPreedit();
+    void resetState();
     void showStatus(const std::string& message);
 
     Instance* instance_ = nullptr;
