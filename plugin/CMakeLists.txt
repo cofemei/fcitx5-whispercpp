@@ -27,7 +27,7 @@ install(TARGETS whispercpp
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/fcitx5"
 )
 
-configure_file(whispercpp-addon.conf.in whispercpp-addon.conf COPYONLY)
+configure_file(whispercpp-addon.conf.in whispercpp-addon.conf)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/whispercpp-addon.conf"
     RENAME whispercpp.conf
     DESTINATION "${CMAKE_INSTALL_DATADIR}/fcitx5/addon"

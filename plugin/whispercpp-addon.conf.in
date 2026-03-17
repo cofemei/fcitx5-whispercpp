@@ -1,6 +1,12 @@
 [Addon]
 Name=WhisperCpp Input
 Category=InputMethod
+Version=@PROJECT_VERSION@
 Library=whispercpp
 Type=SharedLibrary
 OnDemand=True
+Configurable=False
+
+[Addon/Dependencies]
+
+[Addon/OptionalDependencies]
