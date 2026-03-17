@@ -1,0 +1,15 @@
+- [x] Update plugin build system to link PortAudio and whisper.cpp natively per spec
+- [x] Implement AudioRecorder RAII class in plugin/audio_recorder.h and plugin/audio_recorder.cpp
+- [x] Implement WhisperContext async inference + eventfd bridge in plugin/whisper_context.h and plugin/whisper_context.cpp
+- [x] Refactor WhisperCppEngine to remove DBus path and wire AudioRecorder + WhisperContext
+- [x] Remove deprecated DBus/Python daemon components from build and repository paths listed in spec
+- [x] Update scripts/install.sh to native C++ plugin install flow with model/language environment setup
+- [x] Run formatting/lint/build checks and fix any issues
+- [x] Run spec verification commands (ldd checks) and confirm no python/dbus linkage
+- [x] Final review against SPEC.md and close remaining gaps
+- [x] Refactor WhisperCppEngine header to remove cached InputContext, add trigger key, and preedit update helpers
+- [x] Implement key handling changes: Ctrl+Alt+V trigger, Escape cancel, and busy/recording key swallowing
+- [x] Implement preedit-based status rendering and async-safe commit via current input context lookup
+- [x] Add exception-safe recorder start/stop flows aligned with spec messages
+- [x] Run formatting and build verification for plugin
+- [x] Re-review code against SPEC.md and close

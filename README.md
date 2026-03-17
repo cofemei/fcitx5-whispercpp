@@ -1,128 +1,130 @@
 # fcitx5-whispercpp
 
-Local speech-to-text input method for fcitx5 powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via [pywhispercpp](https://github.com/abdeladim-s/pywhispercpp).
+由 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 驅動、透過 [pywhispercpp](https://github.com/abdeladim-s/pywhispercpp) 提供的本機語音轉文字 fcitx5 輸入法。
 
-Press `Shift+Space` to start recording, press again to stop — transcribed text is committed into the active input field.
+本專案受 [fcitx5-voice](https://github.com/gyu-don/fcitx5-voice) 啟發。
 
-## Architecture
+按下 `Shift+Space` 開始錄音，再按一次停止 — 轉錄的文字會自動提交到活躍的輸入欄位。
 
-Three components communicate over D-Bus:
+## 架構
 
-1. **C++ plugin** — fcitx5 input method engine; handles key events and commits text to the active input context
-2. **Python daemon** — records audio via sounddevice and runs local whisper transcription via pywhispercpp
-3. **D-Bus interface** — `org.fcitx.Fcitx5.WhisperCpp` coordinates recording control and text delivery
+三個元件透過 D-Bus 通訊：
 
-Everything runs locally — no network access is required for transcription.
+1. **C++ 外掛** — fcitx5 輸入法引擎；處理鍵盤事件並將文字提交到活躍的輸入上下文
+2. **Python daemon** — 透過 sounddevice 錄音並使用 pywhispercpp 執行本機 whisper 轉錄
+3. **D-Bus 介面** — `org.fcitx.Fcitx5.WhisperCpp` 協調錄音控制和文字傳送
 
-## Requirements
+一切都在本機執行 — 轉錄不需要網路存取。
 
-- Linux with fcitx5
-- C++ build tools: `cmake`, `g++`, `pkg-config`, `libdbus-1-dev`, fcitx5 development headers
+## 需求
+
+- Linux + fcitx5
+- C++ 編譯工具：`cmake`、`g++`、`pkg-config`、`libdbus-1-dev`、fcitx5 開發標頭檔
 - Python 3.12+
 - [`uv`](https://github.com/astral-sh/uv)
 
-## Install
+## 安裝
 
 ```bash
 ./scripts/install.sh
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--model <name>` | `base` | Whisper model to use |
-| `--language <code>` | `zh` | Transcription language code |
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| `--model <name>` | `base` | 要使用的 Whisper 模型 |
+| `--language <code>` | `zh` | 轉錄語言代碼 |
 
-Install path is always `~/.local` (no sudo required).
+安裝路徑始終為 `~/.local`（不需要 sudo）。
 
-**Model options:**
+**模型選項：**
 
 ```bash
-# Built-in pywhispercpp model name
+# 內建 pywhispercpp 模型名稱
 ./scripts/install.sh --model base
 
-# Local .gguf / .bin file
+# 本機 .gguf / .bin 檔案
 ./scripts/install.sh --model /path/to/model.gguf
 
-# Hugging Face repo (auto-selects best .gguf/.bin file)
+# Hugging Face 儲存庫（自動選擇最佳 .gguf/.bin 檔案）
 ./scripts/install.sh --model username/repo
 
-# Hugging Face repo with specific file
+# Hugging Face 儲存庫的特定檔案
 ./scripts/install.sh --model username/repo@ggml-model-q5_k.gguf
 ```
 
-Downloaded HF models are cached in `~/.cache/fcitx5-whispercpp/models/`.
+下載的 HF 模型快取在 `~/.cache/fcitx5-whispercpp/models/`。
 
-**GPU acceleration:**
+**GPU 加速：**
 
 ```bash
 GGML_VULKAN=1 ./scripts/install.sh      # Vulkan (AMD / Intel)
 GGML_CUDA=1   ./scripts/install.sh      # CUDA (NVIDIA)
-WHISPER_CUDA=1 ./scripts/install.sh     # alias for GGML_CUDA
+WHISPER_CUDA=1 ./scripts/install.sh     # GGML_CUDA 的別名
 ```
 
-**Whisper prompt:**
+**Whisper 提示詞：**
 
-Edit `prompt.md` before running install to prime the transcription with example phrases or vocabulary. The file is copied to `~/.config/fcitx5-whispercpp/prompt.md` and passed as `initial_prompt` to whisper on every transcription.
+在執行安裝前編輯 `prompt.md` 以設定轉錄提示詞，可包含範例句子或詞彙。該檔案會複製到 `~/.config/fcitx5-whispercpp/prompt.md` 並在每次轉錄時作為 `initial_prompt` 傳給 whisper。
 
-## After Install
+## 安裝後
 
-1. Open fcitx5 configuration → **Input Methods**.
-2. Add **fcitx5-whispercpp**.
-3. Switch to this input method.
-4. Press **Shift+Space** to start recording; press again to stop and commit.
+1. 開啟 fcitx5 設定 → **輸入法**。
+2. 新增 **fcitx5-whispercpp**。
+3. 切換到此輸入法。
+4. 按 **Shift+Space** 開始錄音；再按一次停止並提交。
 
-The status indicator in the input panel shows the current state:
+輸入欄位中的狀態指示器顯示目前狀態：
 
-| Display | State |
-|---------|-------|
-| `W: Shift+Space to start` | idle, waiting |
-| `W: recording...` | recording audio |
-| `W: stopped` | processing |
-| `W: text committed` | done |
+| 顯示 | 狀態 |
+|------|------|
+| `W: Shift+Space to start` | 閒置，等待中 |
+| `W: recording...` | 錄音中 |
+| `W: stopped` | 處理中 |
+| `W: text committed` | 完成 |
 
-## Uninstall
+## 解除安裝
 
 ```bash
 ./scripts/uninstall.sh
 ```
 
-Removes: plugin files, systemd service, D-Bus interface file, daemon symlink, `~/.config/fcitx5-whispercpp/`, and the whispercpp entry from `~/.config/fcitx5/profile`.
+移除：外掛檔案、systemd 服務、D-Bus 介面檔案、daemon 符號連結、`~/.config/fcitx5-whispercpp/`，以及 `~/.config/fcitx5/profile` 中的 whispercpp 項目。
 
-## Directory Layout
+## 目錄結構
 
 ```text
 fcitx5-whispercpp/
-├── CMakeLists.txt                       C++ build root
+├── CMakeLists.txt                       C++ 編譯根目錄
 ├── daemon/                              Python D-Bus daemon
 │   ├── __init__.py
-│   ├── dbus_service.py                  Recorder + WhisperCppService
-│   └── main.py                          Entry point (CLI)
+│   ├── dbus_service.py                  錄音機 + WhisperCppService
+│   └── main.py                          進入點 (CLI)
 ├── dbus/
-│   └── org.fcitx.Fcitx5.WhisperCpp.xml D-Bus interface definition
-├── plugin/                              C++ fcitx5 plugin
+│   └── org.fcitx.Fcitx5.WhisperCpp.xml D-Bus 介面定義
+├── plugin/                              C++ fcitx5 外掛
 │   ├── CMakeLists.txt
-│   ├── dbus_client.cpp / .h             Low-level D-Bus client
-│   ├── whispercpp_engine.cpp / .h       Input method engine
+│   ├── dbus_client.cpp / .h             低層 D-Bus 用戶端
+│   ├── whispercpp_engine.cpp / .h       輸入法引擎
 │   ├── whispercpp_engine_factory.cpp
-│   ├── whispercpp-addon.conf.in         Addon config template
-│   └── whispercpp.conf                  Input method registration
-├── prompt.md                            Default whisper initial prompt
+│   ├── whispercpp-addon.conf.in         外掛設定範本
+│   └── whispercpp.conf                  輸入法註冊檔
+├── prompt.md                            預設 whisper 初始提示詞
 ├── pyproject.toml
 ├── scripts/
 │   ├── install.sh
 │   └── uninstall.sh
 ├── systemd/
-│   └── fcitx5-whispercpp-daemon.service Systemd user service template
-├── tools/                               Install/uninstall helpers
-│   ├── configure_fcitx5.py              Write fcitx5 profile + hotkey config
-│   ├── deconfigure_fcitx5.py            Remove whispercpp from fcitx5 profile
-│   └── resolve_hf_model.py              Download model from Hugging Face
+│   └── fcitx5-whispercpp-daemon.service Systemd 使用者服務範本
+├── tools/                               安裝/解除安裝輔助程式
+│   ├── configure_fcitx5.py              寫入 fcitx5 設定檔 + 熱鍵設定
+│   ├── deconfigure_fcitx5.py            從 fcitx5 設定檔移除 whispercpp
+│   └── resolve_hf_model.py              從 Hugging Face 下載模型
 └── uv.lock
 ```
 
-## Development
+## 開發
 
-Run lint/format checks with the project environment:
+使用專案環境執行 lint/format 檢查：
 
 ```bash
 uv run ruff check daemon tools
@@ -130,10 +132,14 @@ uv run ruff format daemon tools
 uv run shellcheck -x scripts/*.sh
 ```
 
-## Automation
+## 自動化
 
-- **CI (`.github/workflows/ci.yml`)**: runs on push/PR to `main` and checks Python lint/format, shell scripts, and workflow syntax.
-- **CodeQL (`.github/workflows/codeql.yml`)**: runs on push/PR to `main` and weekly schedule for Python/C++ static analysis.
-- **Dependabot (`.github/dependabot.yml`)**: weekly updates for GitHub Actions and Python dependencies.
-- **Release (`.github/workflows/release.yml`)**: pushes a tag like `v0.1.0` to create a GitHub Release with auto-generated notes.
-- **Release message template (`.github/release.yml`)**: controls release note categories by PR labels.
+- **CI (`.github/workflows/ci.yml`)**: 在推送/PR 到 `main` 時執行，檢查 Python lint/format、shell 腳本和工作流程語法。
+- **CodeQL (`.github/workflows/codeql.yml`)**: 在推送/PR 到 `main` 和每週執行 Python/C++ 靜態分析。
+- **Dependabot (`.github/dependabot.yml`)**: 每週更新 GitHub Actions 和 Python 依賴。
+- **Release (`.github/workflows/release.yml`)**: 推送像 `v0.1.0` 的標籤以建立自動生成說明的 GitHub Release。
+- **Release message 範本 (`.github/release.yml`)**: 透過 PR 標籤控制 release 說明類別。
+
+## License
+
+本專案採用 Apache License 2.0。詳見 [LICENSE](LICENSE) 檔案。
