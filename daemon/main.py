@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import atexit
 import logging
+import logging.handlers
+import os
 import signal
 import sys
 from pathlib import Path
@@ -15,13 +17,36 @@ from .dbus_service import start_dbus_service
 
 service = None
 
+_LOG_MAX_BYTES = 1024 * 1024  # 1 MiB per log file
+_LOG_BACKUP_COUNT = 3
+
+
+def _xdg_state_home() -> Path:
+    """Return $XDG_STATE_HOME, defaulting to ~/.local/state per the XDG spec."""
+    xdg = os.environ.get("XDG_STATE_HOME", "")
+    return Path(xdg) if xdg else Path.home() / ".local" / "state"
+
 
 def configure_logging(debug: bool) -> None:
-    logging.basicConfig(
-        level=logging.DEBUG if debug else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
+    level = logging.DEBUG if debug else logging.INFO
+    fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    datefmt = "%H:%M:%S"
+
+    logging.basicConfig(level=level, format=fmt, datefmt=datefmt)
+
+    log_dir = _xdg_state_home() / "fcitx5-whispercpp"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "fcitx5-whispercpp.log"
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=_LOG_MAX_BYTES,
+        backupCount=_LOG_BACKUP_COUNT,
+        encoding="utf-8",
     )
+    file_handler.setLevel(level)
+    file_handler.setFormatter(logging.Formatter(fmt=fmt, datefmt=datefmt))
+    logging.getLogger().addHandler(file_handler)
 
 
 def cleanup() -> None:
