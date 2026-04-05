@@ -27,6 +27,6 @@ package = true
 
 [dependency-groups]
 dev = [
-    "ruff==0.15.7",
+    "ruff==0.15.9",
     "shellcheck-py>=0.11.0.1",
 ]
