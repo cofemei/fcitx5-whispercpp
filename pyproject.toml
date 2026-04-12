@@ -5,7 +5,7 @@ description = "Voice input plugin for fcitx5 using local whispercpp"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "numpy>=2.0.0",
+    "numpy>=2.4.4",
     "PyGObject>=3.42.0",
     "pydbus>=0.6.0",
     "pywhispercpp>=1.4.1",
